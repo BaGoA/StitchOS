@@ -1,6 +1,8 @@
 #![no_std]
 #![no_main]
 
+mod vga;
+
 /// This method is called when a panic occurs
 #[panic_handler]
 fn panic(_infos: &core::panic::PanicInfo) -> ! {
