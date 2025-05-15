@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-mod vga;
+mod vga_buffer;
 
 /// This method is called when a panic occurs
 #[panic_handler]
@@ -12,17 +12,10 @@ fn panic(_infos: &core::panic::PanicInfo) -> ! {
 /// Entry point of OS
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
-    let message = b"Welcome in StitchOS";
-    let vga_buffer = 0xb8000 as *mut u8;
+    let mut writer = vga_buffer::Writer::new(vga_buffer::Color::Green, vga_buffer::Color::Black);
 
-    for (index, &byte) in message.iter().enumerate() {
-        let position_buffer: isize = index as isize * 2;
-
-        unsafe {
-            *vga_buffer.offset(position_buffer) = byte;
-            *vga_buffer.offset(position_buffer + 1) = 0xb;
-        }
-    }
+    writer.write_byte(b'W');
+    writer.write_string("elcome to StitchOS");
 
     loop {}
 }

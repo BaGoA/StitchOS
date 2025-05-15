@@ -44,6 +44,7 @@ struct ScreenChar {
 
 const BUFFER_HEIGHT: usize = 25;
 const BUFFER_WIDTH: usize = 80;
+const BUFFER_ADDRESS: usize = 0xb8000;
 
 /// Compute the index of the memory block from row and column indexes
 fn index_memory_block(row_index: usize, column_index: usize) -> usize {
@@ -58,16 +59,60 @@ pub struct Writer {
 }
 
 impl Writer {
-    fn new(foreground: Color, background: Color) -> Self {
+    /// Create a VGA buffer writer from foreground and background color
+    pub fn new(foreground: Color, background: Color) -> Self {
         return Self {
             column_position: 0,
             color_code: ColorCode::new(foreground, background),
             buffer: unsafe {
                 core::slice::from_raw_parts_mut(
-                    0xb8000 as *mut ScreenChar,
+                    core::ptr::with_exposed_provenance_mut::<ScreenChar>(BUFFER_ADDRESS),
                     BUFFER_HEIGHT * BUFFER_WIDTH,
                 )
             },
         };
+    }
+
+    /// Write a byte in VGA buffer with foreground and background color given
+    /// at the construction of the Writer
+    pub fn write_byte(&mut self, byte: u8) {
+        match byte {
+            b'\n' => self.new_line(),
+            _ => {
+                if self.column_position >= BUFFER_WIDTH - 1 {
+                    // the current line is full
+                    self.new_line();
+                }
+
+                // The writer write always to the last line
+                let index_in_buffer: usize =
+                    index_memory_block(BUFFER_HEIGHT - 1, self.column_position);
+
+                self.buffer[index_in_buffer] = ScreenChar {
+                    ascii_char: byte,
+                    color_code: self.color_code,
+                };
+
+                self.column_position += 1;
+            }
+        }
+    }
+
+    /// Write a string in VGA buffer with foreground and background color given
+    /// at the construction of the Writer
+    pub fn write_string(&mut self, string: &str) {
+        string.bytes().for_each(|byte: u8| {
+            match byte {
+                0x20..=0x7e | b'\n' => {
+                    // the character is a printable by VGA
+                    self.write_byte(byte)
+                }
+                _ => self.write_byte(0xfe), // for unprintable character we write the white square character
+            }
+        });
+    }
+
+    fn new_line(&mut self) {
+        // TODO
     }
 }
