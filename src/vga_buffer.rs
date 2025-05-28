@@ -42,6 +42,11 @@ struct ScreenChar {
     color_code: ColorCode,
 }
 
+/// ScreenChar volatile version to ensure that compiler will never optimize
+/// away write of these characters on screen
+type VolatileScreenChar = volatile::Volatile<ScreenChar>;
+
+// VGA buffer details
 const BUFFER_HEIGHT: usize = 25;
 const BUFFER_WIDTH: usize = 80;
 const BUFFER_ADDRESS: usize = 0xb8000;
@@ -55,7 +60,7 @@ fn index_memory_block(row_index: usize, column_index: usize) -> usize {
 pub struct Writer {
     column_position: usize,
     color_code: ColorCode,
-    buffer: &'static mut [ScreenChar],
+    buffer: &'static mut [VolatileScreenChar],
 }
 
 impl Writer {
@@ -66,7 +71,7 @@ impl Writer {
             color_code: ColorCode::new(foreground, background),
             buffer: unsafe {
                 core::slice::from_raw_parts_mut(
-                    core::ptr::with_exposed_provenance_mut::<ScreenChar>(BUFFER_ADDRESS),
+                    core::ptr::with_exposed_provenance_mut::<VolatileScreenChar>(BUFFER_ADDRESS),
                     BUFFER_HEIGHT * BUFFER_WIDTH,
                 )
             },
@@ -88,10 +93,10 @@ impl Writer {
                 let index_in_buffer: usize =
                     index_memory_block(BUFFER_HEIGHT - 1, self.column_position);
 
-                self.buffer[index_in_buffer] = ScreenChar {
+                self.buffer[index_in_buffer].write(ScreenChar {
                     ascii_char: byte,
                     color_code: self.color_code,
-                };
+                });
 
                 self.column_position += 1;
             }
