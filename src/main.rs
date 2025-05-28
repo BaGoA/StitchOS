@@ -17,8 +17,9 @@ pub extern "C" fn _start() -> ! {
     let mut writer = vga_buffer::Writer::new(vga_buffer::Color::Green, vga_buffer::Color::Black);
 
     writer.write_byte(b'W');
-    writer.write_string("elcome to StitchOS");
-    write!(writer, " version {}.{}.{}", 0, 0, 1).unwrap();
+    writer.write_string("elcome to StitchOS\n");
+    writeln!(writer, "version {}.{}.{}", 0, 0, 1).unwrap();
+    write!(writer, "Let's get started").unwrap();
 
     loop {}
 }

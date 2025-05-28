@@ -118,7 +118,29 @@ impl Writer {
     }
 
     fn new_line(&mut self) {
-        // TODO
+        // Read each character from each row and write it on line above
+        for row_index in 1..BUFFER_HEIGHT {
+            for column_index in 0..BUFFER_WIDTH {
+                let character: ScreenChar =
+                    self.buffer[index_memory_block(row_index, column_index)].read();
+
+                self.buffer[index_memory_block(row_index - 1, column_index)].write(character);
+            }
+        }
+
+        self.clear_row(BUFFER_HEIGHT - 1);
+        self.column_position = 0;
+    }
+
+    fn clear_row(&mut self, row_index: usize) {
+        let blank_char = ScreenChar {
+            ascii_char: b' ',
+            color_code: self.color_code,
+        };
+
+        for col_index in 0..BUFFER_WIDTH {
+            self.buffer[index_memory_block(row_index, col_index)].write(blank_char);
+        }
     }
 }
 
