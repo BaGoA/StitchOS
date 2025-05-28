@@ -3,6 +3,8 @@
 
 mod vga_buffer;
 
+use core::fmt::Write;
+
 /// This method is called when a panic occurs
 #[panic_handler]
 fn panic(_infos: &core::panic::PanicInfo) -> ! {
@@ -16,6 +18,7 @@ pub extern "C" fn _start() -> ! {
 
     writer.write_byte(b'W');
     writer.write_string("elcome to StitchOS");
+    write!(writer, " version {}.{}.{}", 0, 0, 1).unwrap();
 
     loop {}
 }
