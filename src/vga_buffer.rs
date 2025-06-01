@@ -52,6 +52,7 @@ const BUFFER_WIDTH: usize = 80;
 const BUFFER_ADDRESS: usize = 0xb8000;
 
 /// Compute the index of the memory block from row and column indexes
+/// according to row-major storage
 fn index_memory_block(row_index: usize, column_index: usize) -> usize {
     return row_index * BUFFER_WIDTH + column_index;
 }
@@ -64,7 +65,7 @@ pub struct Writer {
 }
 
 impl Writer {
-    /// Create a VGA buffer writer from foreground and background color
+    /// Create a VGA buffer writer from foreground and background color of screen
     pub fn new(foreground: Color, background: Color) -> Self {
         return Self {
             column_position: 0,
@@ -118,14 +119,19 @@ impl Writer {
     }
 
     fn new_line(&mut self) {
-        // Read each character from each row and write it on line above
+        // Move all rows up one row
         for row_index in 1..BUFFER_HEIGHT {
-            for column_index in 0..BUFFER_WIDTH {
-                let character: ScreenChar =
-                    self.buffer[index_memory_block(row_index, column_index)].read();
+            // Get slice containing the row to move up and previous row
+            // Then we split into two slices corresponding to these rows
+            let previous_row_start: usize = (row_index - 1) * BUFFER_WIDTH;
+            let len_two_rows: usize = 2 * BUFFER_WIDTH;
 
-                self.buffer[index_memory_block(row_index - 1, column_index)].write(character);
-            }
+            let (previous_row, current_row) = self.buffer
+                [previous_row_start..(previous_row_start + len_two_rows)]
+                .split_at_mut(BUFFER_WIDTH);
+
+            // Swap the rows, so current row move up above
+            previous_row.swap_with_slice(current_row);
         }
 
         self.clear_row(BUFFER_HEIGHT - 1);
@@ -138,9 +144,13 @@ impl Writer {
             color_code: self.color_code,
         };
 
-        for col_index in 0..BUFFER_WIDTH {
-            self.buffer[index_memory_block(row_index, col_index)].write(blank_char);
-        }
+        self.buffer
+            .iter_mut()
+            .skip(row_index * BUFFER_WIDTH)
+            .take(BUFFER_WIDTH)
+            .for_each(|volatile_screen_char: &mut VolatileScreenChar| {
+                volatile_screen_char.write(blank_char)
+            });
     }
 }
 
