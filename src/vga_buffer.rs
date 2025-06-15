@@ -49,6 +49,7 @@ type VolatileScreenChar = volatile::Volatile<ScreenChar>;
 // VGA buffer details
 const BUFFER_HEIGHT: usize = 25;
 const BUFFER_WIDTH: usize = 80;
+const BUFFER_SIZE: usize = BUFFER_HEIGHT * BUFFER_WIDTH;
 const BUFFER_ADDRESS: usize = 0xb8000;
 
 /// Compute the index of the memory block from row and column indexes
@@ -61,7 +62,7 @@ fn index_memory_block(row_index: usize, column_index: usize) -> usize {
 pub struct Writer {
     column_position: usize,
     color_code: ColorCode,
-    buffer: &'static mut [VolatileScreenChar],
+    buffer: &'static mut [VolatileScreenChar; BUFFER_SIZE],
 }
 
 impl Writer {
@@ -73,8 +74,10 @@ impl Writer {
             buffer: unsafe {
                 core::slice::from_raw_parts_mut(
                     core::ptr::with_exposed_provenance_mut::<VolatileScreenChar>(BUFFER_ADDRESS),
-                    BUFFER_HEIGHT * BUFFER_WIDTH,
+                    BUFFER_SIZE,
                 )
+                .try_into()
+                .unwrap()
             },
         };
     }
@@ -159,4 +162,25 @@ impl core::fmt::Write for Writer {
         self.write_string(s);
         return Ok(());
     }
+}
+
+lazy_static::lazy_static! {
+    pub static ref KWriter: spin::Mutex<Writer> = spin::Mutex::new(Writer::new(Color::Green, Color::Black));
+}
+
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::vga_buffer::_print(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! println {
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}
+
+#[doc(hidden)]
+pub fn _print(args: core::fmt::Arguments) {
+    use core::fmt::Write;
+    KWriter.lock().write_fmt(args).unwrap();
 }
